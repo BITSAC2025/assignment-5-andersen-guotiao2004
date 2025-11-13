@@ -1,8 +1,8 @@
 name: AutoGrader
 
 on:
-  push:
-    branches: [ "master" ]
+  schedule:
+    - cron: '0 16 * * 0'
   workflow_dispatch:
 
 env:
@@ -14,6 +14,8 @@ jobs:
   grade-assignment:
     runs-on: ubuntu-latest
     name: Compare with Reference Answer
+    permissions:
+      contents: write
 
     steps:
       # Checkout students' code
@@ -133,3 +135,23 @@ jobs:
           path: |
             $ASSIGNMENT_DIR/test-results/
           retention-days: 365
+
+      - name: Push Grading Summary to Student Repo
+        run: |
+          RESULTS_DIR="$ASSIGNMENT_DIR/Assignment-5-Andersen/test-results"
+          SUMMARY_FILE="grading_summary.txt"
+          
+          cp "$RESULTS_DIR/summary.txt" "$ASSIGNMENT_DIR/$SUMMARY_FILE"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add "$SUMMARY_FILE"
+          
+          if ! git diff --cached --exit-code --quiet; then
+            git commit -m "AutoGrader: Add grading summary for assignment"
+            git push
+            echo "Successfully pushed $SUMMARY_FILE to the student repository."
+          else
+            echo "No changes in summary file detected. Skipping commit."
+          fi
